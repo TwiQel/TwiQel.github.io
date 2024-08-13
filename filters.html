@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filters</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        #allPlots {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-gap: 20px;
+            margin: auto;
+            width: 92vw;
+        }
+
+        .plot {
+            width: 100%;
+            height: 250px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Filtertjes</h1>
+    <p>Oke ik kon het niet laten, je hoeft me hier niet voor uit te betalen, maar ik had het al helemaal uitgedacht, dus
+        jammer om het niet in de praktijk te brengen!
+    </p>
+    <input type="file" id="csvFileInput" accept=".csv">
+    <div id="allPlots">
+        <div id="plot0" class="plot"></div>
+        <div id="plot1" class="plot"></div>
+        <div id="plot2" class="plot"></div>
+        <div id="plot3" class="plot"></div>
+    </div>
+
+
+    <script>
+
+
+
+        let types = ["rooms", "times", "days", "weekdays"];
+        let layouts = {};
+        types.forEach(type => layouts[type] = {});
+
+        let all_days_of_week = ["Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag"];
+        let data;
+        let selected = [[], [], [], []];
+        let selectedPointsByPlot = [[], [], [], []];
+
+        function reapplySelection(plotIndex) {
+            const plotDiv = document.getElementById('plot' + plotIndex);
+            const selectedIndices = selectedPointsByPlot[plotIndex];
+            const selectedpointsArray = new Array(plotDiv.data.length).fill(null).map(() => selectedIndices);
+            Plotly.restyle(plotDiv, { selectedpoints: selectedpointsArray });
+        }
+
+        function handleSelection(event, plotIndex) {
+
+            const selectedPoints = event.points;
+            if (selectedPoints.length > 0) {
+                const selectedKeys = selectedPoints.map(point => point.x);
+                selected[plotIndex] = [...new Set(selectedKeys)].sort(); // there's 4 bars, so take uniques to reduce filter time (less points to compare)
+                selectedPointsByPlot[plotIndex] = selectedPoints.map(point => point.pointIndex);
+
+                allTraces = data2traces(data);
+
+                types.forEach((type, i) => {
+                    Plotly.react('plot' + i, allTraces[type], layouts[type]); // there's also Plotly.update, but I couldn't get it to work, possibly more efficient
+                    if (selected[i].length > 0) {
+                        reapplySelection(i);
+                    }
+                })
+            }
+        }
+
+
+
+        document.getElementById('csvFileInput').addEventListener('change', function (event) {
+            selected = [[], [], [], []]; // reset selection (different time/rooms so makes no sense to keep)
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const contents = e.target.result;
+
+                    console.time("Parse CSV, this is slow :(")
+                    data = parseCSV(contents);
+                    console.timeEnd("Parse CSV, this is slow :(")
+                    processCSV(data);
+
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        function parseCSV(contents) {
+            // quite slow, probably a lot faster when fetching from server. 
+            // Better implementation probably possible
+            const lines = contents.split('\n').map(line => line.trim()).filter(line => line);
+            const headers = lines[0].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+            const rows = lines.slice(1).map(line => {
+                const row = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                return row.map(cell => cell.replace(/^"|"$/g, '').replace(/""/g, '"'));
+            });
+
+            const df = rows.map(row => {
+                let obj = {};
+                headers.forEach((header, index) => {
+                    obj[header] = row[index];
+                });
+                return obj;
+            });
+
+            return df;
+        }
+
+        function parseDate(dateStr) {
+
+            const [day, month, year, hour, minute, _, __] = dateStr.split(/[- :]/).map(Number);
+            return new Date(year, month - 1, day, hour, minute);
+        }
+
+        function processCSV(data) {
+
+            data.forEach(row => {
+
+                dateTime = String(row.DateTime);
+                row.DateTime = parseDate(dateTime);
+                row.Time = dateTime.split(" ")[1];
+                row.EventDay = row.DateTime.toISOString().split('T')[0]; // YYYY-MM-DD format
+                row.weekday = all_days_of_week[row.DateTime.getDay()];
+            });
+
+            let traces = data2traces(data);
+            plot(traces);
+
+        }
+
+        function wrapText(text, maxLength) {
+            const words = text.split(' ');
+            let wrappedText = '';
+            let line = '';
+
+            words.forEach((word) => {
+                if ((line + word).length <= maxLength) {
+                    line += (line ? ' ' : '') + word;
+                } else {
+                    wrappedText += line + '<br>';
+                    line = word;
+                }
+            });
+
+            return wrappedText + line;
+        }
+
+        function data2traces(data) {
+
+            const rooms = [...new Set(data.map(row => row.RoomName))].sort();
+            const times = [...new Set(data.map(row => row.Time))].sort();
+            const days = [...new Set(data.map(row => row.EventDay))].sort();
+
+            const weekdays = all_days_of_week; // to keep sorting, can choose monday as first day here
+            let typesAllKeys = [rooms, times, days, weekdays];
+
+            let aggregates = {}
+
+            // initialize aggreta object
+            types.forEach((type, i) => {
+                aggregates[type] = { all_sorted: typesAllKeys[i], data: {} }
+                typesAllKeys[i].forEach(key => {
+                    aggregates[type].data[key] = {
+                        scheduledNotEmpty: 0,
+                        scheduledEmpty: 0,
+                        notScheduledNotEmpty: 0,
+                        notScheduledEmpty: 0,
+                    };
+                })
+            })
+
+            data.forEach(row => {
+                // logic to find the fields that should be increased
+                scheduledNotEmpty = row.EventId && row.Amount > 0 ? 1 : 0;
+                scheduledEmpty = row.EventId && row.Amount == 0 ? 1 : 0;
+                notScheduledNotEmpty = !row.EventId && row.Amount > 0 ? 1 : 0;
+                notScheduledEmpty = !row.EventId && row.Amount == 0 ? 1 : 0;
+
+                keys = [row.RoomName, row.Time, row.EventDay, row.weekday];
+                types.forEach((type, i) => {
+                    count = 0;
+                    types.forEach((check_type, k) => {
+                        // scary logic to apply selection, if in selction or if the field is the current field or should be non-empty, 
+                        if (selected[k].includes(keys[k]) || i == k || selected[k].length == 0) {
+                            count += 1;
+                        }
+                    })
+                    if (count == 4) { // passed all filters
+                        aggregates[type].data[keys[i]].scheduledNotEmpty += scheduledNotEmpty
+                        aggregates[type].data[keys[i]].scheduledEmpty += scheduledEmpty
+                        aggregates[type].data[keys[i]].notScheduledNotEmpty += notScheduledNotEmpty
+                        aggregates[type].data[keys[i]].notScheduledEmpty += notScheduledEmpty
+                    }
+                })
+            })
+
+            const colors = ["#4472c4", "#ed7d31", "#a5a5a5", "#ffc000"];
+            const labels = ["Wel geroosterd & bezet", "Wel geroosterd & niet bezet", "Niet geroosterd & wel bezet", "Niet geroosterd & niet bezet"];
+
+            var oneDay = 24 * 60 * 60 * 1000;
+            let widths = [0.8, 1, oneDay, 0.8];
+
+            let allTraces = {};
+            types.forEach(type => allTraces[type] = []);
+
+            types.forEach((type, j) => {
+                plot_obj = aggregates[type];
+                width = widths[j];
+                plot_obj.all_sorted.forEach(key => {
+                    const scheduledNotEmpty = plot_obj.data[key].scheduledNotEmpty;
+                    const scheduledEmpty = plot_obj.data[key].scheduledEmpty;
+                    const notScheduledNotEmpty = plot_obj.data[key].notScheduledNotEmpty;
+                    const notScheduledEmpty = plot_obj.data[key].notScheduledEmpty;
+
+                    const dataToPlot = [scheduledNotEmpty, scheduledEmpty, notScheduledNotEmpty, notScheduledEmpty];
+                    const total = dataToPlot.reduce((acc, val) => acc + val, 0);
+                    const percentageData = dataToPlot.map(val => total != 0 ? (val / total) : 0); // avoid divide by zero
+
+
+                    percentageData.forEach((percentage, i) => {
+                        if (!allTraces[type][i]) {
+                            allTraces[type][i] = {
+                                x: [],
+                                y: [],
+                                name: labels[i],
+                                type: 'bar',
+                                marker: { color: colors[i] },
+                                width: width,
+                                hoverinfo: 'y', // Show only the value on hover
+                            };
+                        }
+
+                        if (type === "rooms") {
+                            wrappedRoom = wrapText(key, 15);
+                            allTraces[type][i].x.push(wrappedRoom);
+                        }
+                        else {
+                            allTraces[type][i].x.push(key);
+
+                        }
+                        allTraces[type][i].y.push(percentage);
+                    });
+                });
+            })
+            return allTraces
+
+        }
+
+        function plot(allTraces) {
+
+
+            types.forEach((type, i) => {
+                layouts[type] = {
+                    // title: type,
+                    barmode: 'stack',
+                    xaxis: {
+                        tickangle: -45,
+                    },
+
+                    yaxis: {
+                        // title: 'Percentage (%)',
+                        tickformat: ',.0%',
+                    },
+                    showlegend: false,
+                    dragmode: 'select',
+                    selectdirection: 'h',
+                    margin: {
+                        l: 40, r: 10, t: 10, b: 70
+                    },
+                };
+
+
+                Plotly.newPlot('plot' + i, allTraces[type], layouts[type]).then(() => {
+                    const plotDiv = document.getElementById('plot' + i);
+                    plotDiv.on('plotly_selected', (event) => handleSelection(event, i));
+                });
+            })
+        }
+    </script>
+</body>
+
+</html>
