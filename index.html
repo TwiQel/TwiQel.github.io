@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TwiQel Tools</title>
+    <!-- <link rel="stylesheet" href="styles.css"> -->
+
     <style>
         body {
             display: flex;
@@ -16,8 +18,9 @@
             background: linear-gradient(135deg, #89f7fe, #66a6ff);
         }
 
-        .container {
+        .container_buttons {
             text-align: center;
+            align-content: center;
         }
 
         h1 {
@@ -62,9 +65,15 @@
 </head>
 
 <body>
+    <div class="topbar">
+        <a href="/"><img src="logo.svg" alt="Logo" class="logo" style="width: 500px;"></a>
+        <!-- <h1>Main page</h1> -->
+    </div>
+    <div class="container_buttons">
 
-    <div class="container">
+        
         <h1>TwiQel Tools</h1>
+
         <a href="filters.html" class="link">Room usage statistics</a>
         <a href="wheel.html" class="link">Wheel visualization</a>
     </div>
