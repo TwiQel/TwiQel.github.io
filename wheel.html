@@ -115,6 +115,18 @@
                 showlegend: false
             });
 
+            data.push({
+                type: 'scatter',
+                x: x_fine,
+                y: y_fine,
+                mode: 'lines',
+                hoverinfo: 'none',  // Disable hover information
+                hovertemplate: '',  // Clear hover template
+
+                line: { color: color },
+                opacity: 1,
+                showlegend: false
+            });
             const formatPercent = num => `${num.toFixed(1)}%`;
             const formattedValues = vals.map(formatPercent);
 
