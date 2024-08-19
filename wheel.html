@@ -4,8 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TwiQel - Room usage statistics</title>
+    <title>TwiQel - Roosterradar</title>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/numeric/1.2.6/numeric.min.js"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
 
@@ -16,10 +17,157 @@
             <h1>Roosterradar</h1>
         </div>
         <p>This is a work in progress, but the goal is to make something like the image below based on schedules and the sensor data.</p>
-        <img src="radar.jpg" style="width: 30vw; padding: 2vw">
+        <div id="plot" style="width: 40vw; height: 40vw; padding: 2vw"></div>
 
     </div>
 
+
+    <script>
+        let data = [];
+        const R = 100;
+
+        // concentric circles
+        for (let i = 1; i <= 5; i++) {
+            const r = 16 * i;
+            const circle = {
+                type: 'scatter',
+                x: Array.from({ length: 100 }, (_, k) => r * Math.cos(2 * Math.PI * k / 99)),
+
+                y: Array.from({ length: 100 }, (_, k) => r * Math.sin(2 * Math.PI * k / 99)),
+                mode: 'lines',
+                line: {
+                    color: 'rgba(128, 128, 128, 0.5)',
+                    width: 2
+                },
+                hoverinfo: 'none',  // Disable hover information
+                hovertemplate: '',  // Clear hover template
+                fill: 'toself',
+                fillcolor: 'rgba(128, 128, 128, '+String(0.02*i)+')',
+                showlegend: false
+            };
+            data.push(circle);
+
+            // radius labels
+            const label = {
+                type: 'scatter',
+                x: [2],
+                y: [r],
+                mode: 'text',
+                hoverinfo: 'none',  // Disable hover information
+                hovertemplate: '',  // Clear hover template
+                text: [String(r)],
+                textfont: { color: 'gray', size: 12 },
+                showlegend: false
+            };
+            data.push(label);
+        }
+
+        // radial lines
+        const angles = [0, (2 * Math.PI) / 3, (4 * Math.PI) / 3];
+        for (const angle of angles) {
+            const line = {
+                type: 'scatter',
+                x: [R * Math.sin(angle), -R * Math.sin(angle)],
+                y: [R * Math.cos(angle), -R * Math.cos(angle)],
+                mode: 'lines',
+                hoverinfo: 'none',  // Disable hover information
+                hovertemplate: '',  // Clear hover template
+                line: { color: 'white', width: 2 },
+                showlegend: false
+            };
+            data.push(line);
+        }
+
+        // Function to interpolate using cubic splines
+        function cubicSplineInterpolation(points, n = 100) {
+            const t = points.map((_, i) => i);
+            const cs_x = numeric.spline(t, points.map(p => p[0]));
+            const cs_y = numeric.spline(t, points.map(p => p[1]));
+
+            const t_fine = Array.from({ length: n }, (_, i) => i * (points.length - 1) / (n - 1));
+            return t_fine.map(ti => [cs_x.at(ti), cs_y.at(ti)]);
+        }
+
+        const colors = ["#c6353f", "#eec654", "#009dad"];
+        for (const color of colors) {
+            const vals = Array.from({ length: 6 }, () => Math.random() * 70 + 10);
+            const points = vals.map((r, i) => [r * Math.sin((2 * Math.PI * i) / 6), r * Math.cos((2 * Math.PI * i) / 6)]);
+
+            points.push(points[0]);
+
+            const interpolatedPoints = cubicSplineInterpolation(points, 100);
+            const x_fine = interpolatedPoints.map(p => p[0]);
+            const y_fine = interpolatedPoints.map(p => p[1]);
+
+            // Plot the blob
+            data.push({
+                type: 'scatter',
+                x: x_fine,
+                y: y_fine,
+                mode: 'lines',
+                hoverinfo: 'none',  // Disable hover information
+                hovertemplate: '',  // Clear hover template
+
+                line: { color: color },
+                fill: 'toself',
+                fillcolor: color,
+                opacity: 0.3,
+                showlegend: false
+            });
+
+            const formatPercent = num => `${num.toFixed(1)}%`;
+            const formattedValues = vals.map(formatPercent);
+
+            // Plot the points
+            data.push({
+                type: 'scatter',
+                x: points.map(p => p[0]),
+                y: points.map(p => p[1]),
+                mode: 'markers',
+                marker: { color: color, size: 8 },
+                showlegend: false,
+                text: formattedValues, // Array of hover labels
+                hoverinfo: 'text', // Display only the hover labels
+            });
+        }
+
+        // Add labels
+        const labels = ['Occupation', "Utilisation", "Contribution<br>to community<br>building", "Allocation of<br>suitable rooms", "Gap<br>hours", "Building<br>consistency"];
+        for (let i = 0; i < 6; i++) {
+            const angle = (2 * Math.PI * i) / 6;
+            data.push({
+                type: 'scatter',
+                // size: 100,
+                x: [R * Math.sin(angle)],
+                y: [R * Math.cos(angle)],
+                mode: 'text',
+                hoverinfo: 'none',  // Disable hover information
+                hovertemplate: '',  // Clear hover template
+                text: [labels[i]],
+                textfont: {
+                    size: 28,  // Change this value to adjust text size
+                    color: 'black'  // Optional: change text color
+                    
+                },
+                textposition: 'middle center',
+                showlegend: false
+            });
+        }
+
+        // Configure layout
+        const layout = {
+            xaxis: { showgrid: false, scaleanchor: 'y', zeroline: false, showticklabels: false },
+            yaxis: { showgrid: false, zeroline: false, showticklabels: false, range: [-120, 120], },
+
+            margin: { t: 0, r: 0, b: 0, l: 0 },
+            // plot_bgcolor: 'black',
+            // paper_bgcolor: 'black',
+            showlegend: false
+        };
+
+        // Plot the figure
+        Plotly.newPlot('plot', data, layout);
+    </script>
 </body>
 
 </html>
