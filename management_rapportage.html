@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TwiQel - Management rapportage bezetting en benutting onderwijsruimtes</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* body{
+            width: 70vw;
+            min-width: 1000px;
+            margin: auto;
+
+        } */
+        /* Adding CSS styles for the tables */
+        table {
+            /* width: 100%; */
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            margin: 10px 0;
+        }
+
+        .section {
+            font-weight: bold;
+        }
+
+        .subsection {
+            margin-left: 20px;
+        }
+
+        h2 {
+            margin-top: 40px;
+            text-align: center;
+        }
+
+        .rapport-container {
+            padding: 30px;
+            display: none;
+        }
+
+        .filter-tool{
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="topbar">
+            <a href="/"><img src="logo.svg" alt="Logo" class="logo"></a>
+            <h1>Management rapportage bezetting en benutting onderwijsruimtes</h1>
+        </div>
+        <br><br>
+        <input type="file" id="csvFileInput" accept=".csv">
+
+        <div class="rapport-container">
+
+            <div class="time-option">
+                <label>
+                    <input type="radio" name="timeRange" value="full" checked>
+                    Gebruik tijden tussen 7:00 and 22:00
+                </label>
+                <label>
+                    <input type="radio" name="timeRange" value="limited">
+                    Gebruik tijden tussen 9:00 and 17:00
+                </label>
+            </div>
+
+
+            <h2>Inhoudsopgave</h2>
+            <ul>
+                <li class="section">1. Beschrijving brondata van bezetting en benutting onderwijsruimtes</li>
+                <li class="section">2. Management informatie bezetting en benutting onderwijsruimtes</li>
+                <ul>
+                    <li class="subsection">2.1 Bezetting onderwijsruimtes</li>
+                    <li class="subsection">2.2 Geroosterde events in de onderwijsruimtes</li>
+                    <li class="subsection">2.3 Onderwijsruimtes wel of niet geroosterd en wel of niet bezet</li>
+                    <li class="subsection">2.4 Benutting onderwijsruimtes</li>
+                    <li class="subsection">2.5 Gebruik onderwijsruimtes en lesuren gedurende de dag</li>
+                    <li class="subsection">2.6 Interpretatie Roomreport en Eventreport</li>
+                </ul>
+            </ul>
+            <br><br>
+
+
+            <div id="summary">
+                <h2>1. Beschrijving brondata van bezetting en benutting onderwijsruimtes</h2>
+                <p id="summaryText"></p>
+            </div>
+            <div id="measurements-table"></div>
+            <figure>
+                <figcaption>Figure I: Aantal meetmomenten per zaal gedurende <span id="measurement-days"></span>
+                    werkdagen</figcaption>
+            </figure>
+            <h2>2. Management informatie bezetting en benutting onderwijsruimtes</h2>
+            <p>
+                In dit hoofdstuk wordt relevante management informatie besproken, gebaseerd op de real-time metingen van bezetting en benutting door TwiQel. Relevante management informatie die uit de geautomatiseerde metingen te halen zijn, onder andere:
+            </p>
+            
+            <h3>1. In hoeverre worden de onderwijsruimtes bezet?</h3>
+            <ul>
+                <li>• Gemiddelde bezetting over alle onderwijsruimtes (geroosterd en niet geroosterd)</li>
+                <li>• Gemiddelde bezetting per onderwijsruimte</li>
+            </ul>
+    
+            <h3>2. In hoeverre worden onderwijsactiviteiten (events) geroosterd in de onderwijsruimtes?</h3>
+            <ul>
+                <li>• Aantal onderwijsactiviteiten geroosterd</li>
+                <li>• % onderwijsactiviteiten geroosterd (bezet en niet bezet)</li>
+            </ul>
+    
+            <h3>3. In hoeverre worden de onderwijsruimtes wel of niet geroosterd en wel of niet bezet?</h3>
+            <ul>
+                <li>• Aantal no shows</li>
+                <li>• Aantallen en % wel geroosterd & bezet</li>
+                <li>• Aantallen en % wel geroosterd & niet bezet</li>
+                <li>• Aantallen en % niet geroosterd & wel bezet</li>
+                <li>• Aantallen en % niet geroosterd & niet bezet</li>
+            </ul>
+    
+            <h3>4. In hoeverre wordt de capaciteit van de onderwijsruimtes benut indien bezet?</h3>
+            <ul>
+                <li>• Gemiddelde aantal per event (onderwijsactiviteit)</li>
+                <li>• Gemiddelde en max benutting per onderwijsruimte</li>
+                <li>• Gemiddelde benutting van alle onderwijsruimtes (aantal personen / capaciteit onderwijsruimte)</li>
+            </ul>
+    
+            <h3>5. In hoeverre worden de onderwijsruimtes en lesuren gedurende de dag gebruikt?</h3>
+            <ul>
+                <li>• Gemiddelde bezetting onderwijsruimtes per lesuur?</li>
+                <li>• Gemiddelde benutting per bezette lesuur?</li>
+                <li>• Welke lesuren worden het meest ingeroosterd?</li>
+            </ul>
+    
+            <p>
+                Ieder onderdeel wordt in één van de volgende paragrafen uitgewerkt. De laatste paragraaf gaat verder in op de interpretatie van de rapportages ‘Roomreport’ en ‘Eventreport’ in het TwiQel dashboard.
+            </p>
+            <h2>2.1 Bezetting onderwijsruimtes</h2>
+            <div id="bezetting-table"></div>
+            <figure>
+                <figcaption>Figure II: Bezetting per kwartier per onderwijsruimte, gemeten over <span
+                        id="first-meas-date"></span> t/m <span id="last-meas-date"></span></figcaption>
+            </figure>
+
+            <p>Gemiddeld zijn de <span id="room-count"></span> onderwijsruimtes <span id="average-occupancy"></span> van
+                de tijd bezet.</p>
+                HIER NOG EEN LIJSTJE MET MEEST EN MINST BEZETTE RUIMTES
+
+                <br><br>
+                <p style="color: red;">Hier onder een voorbeeldje van hoe de data per ruimte er uit gaat zien. Ik handel gevallen die over de capaciteit zitten nog niet goed, en ik heb nog niet gevalideerd of het allemaal klopt, dat ga ik binnenkort doen. Er moet ook nog een dikkere rand om de twee catagorieen. Wellicht is het ook beter om 1 grote tabel te maken ipv een boel kleine, dit is wel een beetje cluttered.</p>
+                <div id="roomTables"></div>
+                <br><br>
+                <h2>Filter tool!</h2>
+
+                <div class="filter-tool">
+
+                    <div id="allPlots">
+                        <div id="plot0" class="plot"></div>
+                        <div id="plot1" class="plot"></div>
+                        <div id="plot2" class="plot"></div>
+                        <div id="plot3" class="plot"></div>
+                    </div>
+                    <footer>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #4472c4;"></div>
+                            Wel geroosterd & bezet
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #ed7d31;"></div>
+                            Wel geroosterd & niet bezet
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #a5a5a5;"></div>
+                            Niet geroosterd & wel bezet
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #ffc000;"></div>
+                            Niet geroosterd & niet bezet
+                        </div>
+                    </footer>
+                </div>
+            </div>
+
+
+            
+
+    </div>
+
+    <script>
+        let types = ["rooms", "times", "days", "weekdays"];
+        let layouts = {};
+        types.forEach(type => layouts[type] = {});
+
+        let all_days_of_week = ["Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag"];
+        let data;
+        let selected = [[], [], [], []];
+        let selectedPointsByPlot = [[], [], [], []];
+
+        function reapplySelection(plotIndex) {
+            const plotDiv = document.getElementById('plot' + plotIndex);
+            const selectedIndices = selectedPointsByPlot[plotIndex];
+            const selectedpointsArray = new Array(plotDiv.data.length).fill(null).map(() => selectedIndices);
+            Plotly.restyle(plotDiv, { selectedpoints: selectedpointsArray });
+        }
+
+        function handleSelection(event, plotIndex) {
+
+            const selectedPoints = event.points;
+            if (selectedPoints.length > 0) {
+                const selectedKeys = selectedPoints.map(point => point.x);
+                selected[plotIndex] = [...new Set(selectedKeys)].sort(); // there's 4 bars, so take uniques to reduce filter time (less points to compare)
+                selectedPointsByPlot[plotIndex] = selectedPoints.map(point => point.pointIndex);
+
+                allTraces = data2traces(data);
+
+                types.forEach((type, i) => {
+                    Plotly.react('plot' + i, allTraces[type], layouts[type]); // there's also Plotly.update, but I couldn't get it to work, possibly more efficient
+                    if (selected[i].length > 0) {
+                        reapplySelection(i);
+                    }
+                })
+            }
+        }
+
+        let measurementDays;
+        const roomNamesSet = new Set(); // To collect unique room names
+
+        document.getElementById('csvFileInput').addEventListener('change', function (event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const contents = e.target.result;
+                    data = parseCSV(contents);
+                    processCSV();
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        function parseCSV(contents) {
+            const lines = contents.split('\n').map(line => line.trim()).filter(line => line);
+            const headers = lines[0].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+            const rows = lines.slice(1).map(line => {
+                const row = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                return row.map(cell => cell.replace(/^"|"$/g, '').replace(/""/g, '"'));
+            });
+
+            return rows.map(row => {
+                let obj = {};
+                headers.forEach((header, index) => {
+                    obj[header] = row[index];
+                });
+                return obj;
+            });
+        }
+
+        function parseDate(dateStr) {
+            const [day, month, year, hour, minute] = dateStr.split(/[- :]/).map(Number);
+            return new Date(year, month - 1, day, hour, minute);
+        }
+
+        function processCSV() {
+            data.forEach(row => {
+                row.DateTime = parseDate(row.DateTime);
+                row.Time = row.DateTime.toTimeString().split(" ")[0]; // Extract time from Date
+                row.EventDay = row.DateTime.toISOString().split('T')[0]; // YYYY-MM-DD format
+                row.weekday = all_days_of_week[row.DateTime.getDay()];
+
+                
+                roomNamesSet.add(row.RoomName); // Add room name to the set
+                // console.log(row.Time)
+                
+            });
+
+            data = data.filter(row => {
+                const hour = row.DateTime.getHours();
+                return hour >= 7 && hour < 22; // Keep rows between 7 AM and 10 PM
+            })
+
+            // Process and display the tables
+            generateTables();
+
+
+            let traces = data2traces(data);
+            plot(traces);
+        }
+
+        function writeSummary() {
+            const totalRooms = roomNamesSet.size; // Total unique room names
+            const totalDays = measurementDays; // Assuming you have fixed days, can be calculated based on date range
+            let hoursPerDay
+
+            const timeRange = document.querySelector('input[name="timeRange"]:checked').value;
+                if (timeRange === 'full'){
+                    hoursPerDay = 15
+                    start = "7:00"
+                    end = "22:00"
+                }
+                else{
+                    hoursPerDay = 8
+                    start = "9:00"
+                    end = "17:00"
+                }
+
+            const measurementsPerHour = 4; // Assuming 4 measurements per hour
+
+            // Calculate total measurements per room
+            const totalMeasurementsPerRoom = Math.round(hoursPerDay * measurementsPerHour * totalDays);
+            const totalMeasurements = totalRooms * totalMeasurementsPerRoom;
+            
+            // Update the summary text
+            const summaryText = `
+        Voor deze rapportage is de volgende data geselecteerd:
+        • ${totalRooms} zalen: ${Array.from(roomNamesSet).join(', ')}.
+        • Metingen over ${totalDays} dagen.
+        • Metingen tussen ${start} en ${end} uur.
+        • Totaal: ${hoursPerDay} uur per dag * ${measurementsPerHour} metingen per uur * ${totalDays} dagen = ${totalMeasurementsPerRoom} opkomstcijfers per zaal over ${totalDays} weken.
+    `;
+            document.getElementById('summaryText').innerText = summaryText;
+
+        }
+
+        function generateTables() {
+            document.querySelector(".rapport-container").style.display = "block";
+            const allRooms = {};
+            const measurementDates = [];
+            const timeRange = document.querySelector('input[name="timeRange"]:checked').value;
+
+
+            data.forEach(entry => {
+                const room = entry.RoomName;
+                measurementDates.push(entry.DateTime);
+
+                // Filtering based on selected time range
+                const hour = entry.DateTime.getHours();
+                if ((timeRange === 'full' && (hour >= 7 && hour < 22)) ||
+                    (timeRange === 'limited' && (hour >= 9 && hour < 17))) {
+                    if (!allRooms[room]) {
+                        allRooms[room] = { measurements: 0, bezet: 0 , capacity: entry.RoomCapacity};
+                    }
+                    allRooms[room].measurements += 1;
+                    if (entry.Amount > 0) {
+                        allRooms[room].bezet += 1;
+                    }
+                }
+            });
+
+
+
+
+            const roomsMeasurements = Object.keys(allRooms).map(room => ({ room, measurements: allRooms[room].measurements }));
+            const occupancyData = Object.keys(allRooms).map(room => ({ room, ...allRooms[room] }));
+
+            // Generate and display tables
+            const measurementsTable = generateMeasurementsTable(roomsMeasurements);
+            const bezettingTable = generateOccupancyTable(occupancyData);
+
+            document.getElementById('measurements-table').innerHTML = measurementsTable;
+            document.getElementById('bezetting-table').innerHTML = bezettingTable;
+
+            // Setting measurement dates
+            const firstDate = new Date(Math.min(...measurementDates));
+            const lastDate = new Date(Math.max(...measurementDates));
+            measurementDays = Math.round((lastDate - firstDate) / (1000 * 60 * 60 * 24));
+
+            writeSummary();
+
+            document.getElementById('measurement-days').innerText = measurementDays;
+            document.getElementById('first-meas-date').innerText = firstDate.toLocaleDateString('nl-NL');
+            document.getElementById('last-meas-date').innerText = lastDate.toLocaleDateString('nl-NL');
+            document.getElementById('room-count').innerText = Object.keys(allRooms).length;
+
+            const averageOccupancy = ((occupancyData.reduce((sum, item) => sum + item.bezet, 0) / occupancyData.reduce((sum, item) => sum + item.measurements, 0)) * 100).toFixed(0) + '%';
+            document.getElementById('average-occupancy').innerText = averageOccupancy;
+
+
+            // ============================ per room stats
+            Object.keys(allRooms).forEach((room, index) => {
+                const timeRange = document.querySelector('input[name="timeRange"]:checked').value;
+
+
+                const filteredData = data.filter(entry => {
+                    const hour = entry.DateTime.getHours();
+
+                    return entry.RoomName === room && (timeRange === 'full' && (hour >= 7 && hour < 22)) ||
+                    (timeRange === 'limited' && (hour >= 9 && hour < 17))
+                });
+
+
+                // Use map to create an array of Amount values from the filtered entries
+                const amounts = filteredData.map(entry => entry.Amount);
+                
+                const roomData = {
+                    roomName: room,
+                    capacity: allRooms[room].capacity, // Access capacity from the object
+                    observations: amounts  // List of people present in the room
+                };
+
+                generateTableForRoom(roomData, index);
+            });
+            // roomsData.forEach((room, index) => );
+
+
+        }
+
+        function generateMeasurementsTable(roomsMeasurements) {
+            let totalMeasurements = 0;
+            let rows = '';
+            roomsMeasurements.forEach(room => {
+                rows += `<tr><td>${room.room}</td><td>${room.measurements}</td></tr>`;
+                totalMeasurements += room.measurements;
+            });
+            return `
+                <table>
+                    <thead>
+                        <tr><th>Zaal bezetting</th><th>Aantal meetmomenten</th></tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                        <tr><td><strong>Totaal</strong></td><td><strong>${totalMeasurements}</strong></td></tr>
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function generateOccupancyTable(occupancyData) {
+            let totalMeasurements = 0;
+            let totalOccupied = 0;
+            let rows = '';
+
+            occupancyData.forEach(item => {
+                const occupancyPercentage = (item.bezet / item.measurements * 100).toFixed(0);
+                rows += `<tr><td>${item.room}</td><td>${item.measurements}</td><td>${item.bezet}</td><td>${occupancyPercentage}%</td></tr>`;
+                totalMeasurements += item.measurements;
+                totalOccupied += item.bezet;
+            });
+
+            const totalOccupancyPercentage = (totalOccupied / totalMeasurements * 100).toFixed(0) + '%';
+
+            return `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Zaal</th>
+                            <th>Aantal meetmomenten</th>
+                            <th>Aantal bezet</th>
+                            <th>% Bezet</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                        <tr><td><strong>Totaal</strong></td><td><strong>${totalMeasurements}</strong></td><td><strong>${totalOccupied}</strong></td><td><strong>${totalOccupancyPercentage}</strong></td></tr>
+                    </tbody>
+                </table>
+            `;
+        }
+
+        const timeInputs = document.querySelectorAll('input[name="timeRange"]');
+        timeInputs.forEach(input => {
+            input.addEventListener('change', function () {
+                if (data) { // Check if data is loaded
+                    generateTables();
+                }
+            });
+        });
+
+
+
+
+
+
+        function wrapText(text, maxLength) {
+            const words = text.split(' ');
+            let wrappedText = '';
+            let line = '';
+
+            words.forEach((word) => {
+                if ((line + word).length <= maxLength) {
+                    line += (line ? ' ' : '') + word;
+                } else {
+                    wrappedText += line + '<br>';
+                    line = word;
+                }
+            });
+
+            return wrappedText + line;
+        }
+
+        function data2traces(data) {
+
+            const rooms = [...new Set(data.map(row => row.RoomName))].sort();
+            const times = [...new Set(data.map(row => row.Time))].sort();
+            const days = [...new Set(data.map(row => row.EventDay))].sort();
+
+            const weekdays = all_days_of_week; // to keep sorting, can choose monday as first day here
+            let typesAllKeys = [rooms, times, days, weekdays];
+
+            let aggregates = {}
+
+            // initialize aggreta object
+            types.forEach((type, i) => {
+                aggregates[type] = { all_sorted: typesAllKeys[i], data: {} }
+                typesAllKeys[i].forEach(key => {
+                    aggregates[type].data[key] = {
+                        scheduledNotEmpty: 0,
+                        scheduledEmpty: 0,
+                        notScheduledNotEmpty: 0,
+                        notScheduledEmpty: 0,
+                    };
+                })
+            })
+
+            data.forEach(row => {
+                // logic to find the fields that should be increased
+                scheduledNotEmpty = row.EventId && row.Amount > 0 ? 1 : 0;
+                scheduledEmpty = row.EventId && row.Amount == 0 ? 1 : 0;
+                notScheduledNotEmpty = !row.EventId && row.Amount > 0 ? 1 : 0;
+                notScheduledEmpty = !row.EventId && row.Amount == 0 ? 1 : 0;
+
+                keys = [row.RoomName, row.Time, row.EventDay, row.weekday];
+                types.forEach((type, i) => {
+                    count = 0;
+                    types.forEach((check_type, k) => {
+                        // scary logic to apply selection, if in selction or if the field is the current field or should be non-empty, 
+                        if (selected[k].includes(keys[k]) || i == k || selected[k].length == 0) {
+                            count += 1;
+                        }
+                    })
+                    if (count == 4) { // passed all filters
+                        aggregates[type].data[keys[i]].scheduledNotEmpty += scheduledNotEmpty
+                        aggregates[type].data[keys[i]].scheduledEmpty += scheduledEmpty
+                        aggregates[type].data[keys[i]].notScheduledNotEmpty += notScheduledNotEmpty
+                        aggregates[type].data[keys[i]].notScheduledEmpty += notScheduledEmpty
+                    }
+                })
+            })
+
+            const colors = ["#4472c4", "#ed7d31", "#a5a5a5", "#ffc000"];
+            const labels = ["Wel geroosterd & bezet", "Wel geroosterd & niet bezet", "Niet geroosterd & wel bezet", "Niet geroosterd & niet bezet"];
+
+            var oneDay = 24 * 60 * 60 * 1000;
+            let widths = [0.8, 1, oneDay, 0.8];
+
+            let allTraces = {};
+            types.forEach(type => allTraces[type] = []);
+
+            types.forEach((type, j) => {
+                plot_obj = aggregates[type];
+                width = widths[j];
+                plot_obj.all_sorted.forEach(key => {
+                    const scheduledNotEmpty = plot_obj.data[key].scheduledNotEmpty;
+                    const scheduledEmpty = plot_obj.data[key].scheduledEmpty;
+                    const notScheduledNotEmpty = plot_obj.data[key].notScheduledNotEmpty;
+                    const notScheduledEmpty = plot_obj.data[key].notScheduledEmpty;
+
+                    const dataToPlot = [scheduledNotEmpty, scheduledEmpty, notScheduledNotEmpty, notScheduledEmpty];
+                    const total = dataToPlot.reduce((acc, val) => acc + val, 0);
+                    const percentageData = dataToPlot.map(val => total != 0 ? (val / total) : 0); // avoid divide by zero
+
+
+                    percentageData.forEach((percentage, i) => {
+                        if (!allTraces[type][i]) {
+                            allTraces[type][i] = {
+                                x: [],
+                                y: [],
+                                name: labels[i],
+                                type: 'bar',
+                                marker: { color: colors[i] },
+                                width: width,
+                                hoverinfo: 'y', // Show only the value on hover
+                            };
+                        }
+
+                        if (type === "rooms") {
+                            wrappedRoom = wrapText(key, 15);
+                            allTraces[type][i].x.push(wrappedRoom);
+                        }
+                        else {
+                            allTraces[type][i].x.push(key);
+
+                        }
+                        allTraces[type][i].y.push(percentage);
+                    });
+                });
+            })
+            return allTraces
+
+        }
+
+        function plot(allTraces) {
+
+
+            types.forEach((type, i) => {
+                layouts[type] = {
+                    // title: type,
+                    barmode: 'stack',
+                    xaxis: {
+                        tickangle: -45,
+                    },
+
+                    yaxis: {
+                        // title: 'Percentage (%)',
+                        tickformat: ',.0%',
+                    },
+                    showlegend: false,
+                    dragmode: 'select',
+                    selectdirection: 'h',
+                    margin: {
+                        l: 40, r: 10, t: 10, b: 70
+                    },
+                };
+
+
+                Plotly.newPlot('plot' + i, allTraces[type], layouts[type]).then(() => {
+                    const plotDiv = document.getElementById('plot' + i);
+                    plotDiv.on('plotly_selected', (event) => handleSelection(event, i));
+                });
+            })
+        }
+
+
+//         const roomsData = [
+//     {
+//         roomName: "RUPPERT - 031",
+//         capacity: 80,
+//         observations: [0, 0, 1, 3, 45, 35, 20, 55, 60, 75, 80, 40, 30]  // List of people present in the room
+//     },
+//     {
+//         roomName: "RUPPERT - 032",
+//         capacity: 100,
+//         observations: [0, 0, 34,23,45,23,67, 2, 3, 10, 15, 40, 50, 60, 70, 80, 90, 100]  // List of people present in the room
+//     }
+// ];
+
+const roomsData = [
+    {
+        roomName: "RUPPERT - 031",
+        capacity: 80,
+        observations: [0, 0, 1, 3, 45, 35, 20, 55, 60, 75, 80, 40, 30]  // List of people present in the room
+    },
+    {
+        roomName: "RUPPERT - 032",
+        capacity: 100,
+        observations: [0, 0, 34,23,45,23,67, 2, 3, 10, 15, 40, 50, 60, 70, 80, 90, 100]  // List of people present in the room
+    }
+];
+
+
+// Function to generate the histogram from the observations
+function calculateHistogram(observations, capacity) {
+    const histogram = Array(10).fill(0); // 10 deciles (0-10%, 10-20%, ..., 90-100%)
+
+    observations.forEach(people => {
+        const percentage = (people / capacity) * 100;
+        const decileIndex = Math.min(Math.floor(percentage / 10), 9); // Ensure max decile is 90-100%
+        histogram[decileIndex]++;
+    });
+
+    return histogram;
+}
+
+// Function to convert the histogram into integer percentages that sum to 100
+function calculateIntegerPercentages(histogram, totalObservations) {
+    let percentages = histogram.map(count => Math.round((count / totalObservations) * 100));
+
+    // Adjust the percentages to ensure they sum to 100
+    let totalPercentage = percentages.reduce((sum, val) => sum + val, 0);
+    while (totalPercentage !== 100) {
+        let index = totalPercentage > 100 ? percentages.indexOf(Math.max(...percentages)) : percentages.indexOf(Math.min(...percentages));
+        percentages[index] += totalPercentage > 100 ? -1 : 1;
+        totalPercentage = percentages.reduce((sum, val) => sum + val, 0);
+    }
+
+    return percentages;
+}
+
+// Function to generate a table and description for each room
+function generateTableForRoom(roomData, index) {
+    const roomTablesDiv = document.getElementById('roomTables');
+    
+    // Figure numbering (III.a, III.b, etc.)
+    const figureLetter = String.fromCharCode(97 + index); // Convert index to 'a', 'b', 'c', etc.
+    
+    // Create room description
+    const roomInfo = document.createElement('div');
+    roomInfo.className = 'room-info';
+    roomInfo.innerText = `Figure III.${figureLetter}: Benutting in categorieën ${roomData.roomName}, capaciteit: ${roomData.capacity}`;
+
+    // Create the table
+    const table = document.createElement('table');
+    table.style = "margin-bottom: 0px;"
+    const thead = document.createElement('thead');
+    const tbody = document.createElement('tbody');
+
+    // Table headers
+    thead.innerHTML = `
+        <tr>
+            <th rowspan="2">Ruimte</th>
+            <th colspan="2" class="absolute">Absolute getallen bezetting</th>
+            <th colspan="10" class="decielen">Bezetting in decielen (t.o.v. capaciteit)</th>
+            <th rowspan="2">Totaal</th>
+        </tr>
+        <tr>
+            <th>0 personen (no show)</th>
+            <th>1-3 personen</th>
+            <th>0-10%</th>
+            <th>10-20%</th>
+            <th>20-30%</th>
+            <th>30-40%</th>
+            <th>40-50%</th>
+            <th>50-60%</th>
+            <th>60-70%</th>
+            <th>70-80%</th>
+            <th>80-90%</th>
+            <th>90-100%</th>
+        </tr>
+    `;
+    table.appendChild(thead);
+
+    // Calculate histogram and percentages
+    const histogram = calculateHistogram(roomData.observations, roomData.capacity);
+    const percentages = calculateIntegerPercentages(histogram, roomData.observations.length);
+
+    // Calculate percentages for no show and 1-3 people
+    const totalObservations = roomData.observations.length;
+    const noShowPercentage = (roomData.observations.filter(o => o === 0).length / totalObservations * 100).toFixed(0);
+    const oneToThreePercentage = (roomData.observations.filter(o => o > 0 && o <= 3).length / totalObservations * 100).toFixed(0);
+
+    // Table body (room data)
+    const row = document.createElement('tr');
+    row.innerHTML = `
+        <td>${roomData.roomName}</td>
+        <td>${noShowPercentage}%</td>
+        <td>${oneToThreePercentage}%</td>
+        <td>${percentages[0]}%</td>
+        <td>${percentages[1]}%</td>
+        <td>${percentages[2]}%</td>
+        <td>${percentages[3]}%</td>
+        <td>${percentages[4]}%</td>
+        <td>${percentages[5]}%</td>
+        <td>${percentages[6]}%</td>
+        <td>${percentages[7]}%</td>
+        <td>${percentages[8]}%</td>
+        <td>${percentages[9]}%</td>
+        <td>100%</td>
+    `;
+    tbody.appendChild(row);
+
+    table.appendChild(tbody);
+
+    roomTablesDiv.appendChild(table);
+    
+    roomTablesDiv.appendChild(roomInfo);
+
+}
+
+// Generate tables for all rooms, passing the index for figure numbering
+
+
+
+
+    </script>
+</body>
+
+</html>
