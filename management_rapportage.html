@@ -39,7 +39,7 @@
                 </label>
                 <label>
                     <input type="radio" name="timeRange" value="limited">
-                    Gebruik tijden tussen 9:00 and 17:00
+                    Gebruik tijden tussen 8:00 and 18:00
                 </label>
             </div>
 
@@ -139,6 +139,8 @@
         </div>
 
         <script>
+
+
             function openTab(tabName) {
                 var i, tabcontent, tablinks;
                 tabcontent = document.getElementsByClassName("tab");
@@ -163,11 +165,12 @@
             let layouts = {};
             types.forEach(type => layouts[type] = {});
 
-            let all_days_of_week = ["Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag"];
+            let all_days_of_week = ["Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag","Zondag"];
             let data;
             let selected = [[], [], [], []];
             let selectedPointsByPlot = [[], [], [], []];
-
+            limitedTimeRangeStart = 8;
+            limitedTimeRangeEnd = 18;
             function reapplySelection(plotIndex) {
                 const plotDiv = document.getElementById('plot' + plotIndex);
                 const selectedIndices = selectedPointsByPlot[plotIndex];
@@ -250,7 +253,8 @@
                     row.DateTime = parseDate(row.DateTime);
                     row.Time = row.DateTime.toTimeString().split(" ")[0]; // Extract time from Date
                     row.EventDay = row.DateTime.toISOString().split('T')[0]; // YYYY-MM-DD format
-                    row.weekday = all_days_of_week[row.DateTime.getDay()];
+                    // modulo to make monday first day of week
+                    row.weekday = all_days_of_week[(row.DateTime.getDay()+6)%7];
                     row.hour = parseInt(row.Time.split(":")[0]);
                     // row.hour = toIn(row.DateTime.getHours());
 
@@ -267,14 +271,11 @@
                 // Process and display the tables
 
                 generateTables();
-                // generateFigureBezettingTime();
-                // generateFigureBezettingWeekday();
-                // generateFigureBezettingTimePerRoom();
-                // generateFigureBezettingDaysPerRoom();
+
                 generateAllLineBezettingPlots();
                 generateAllLineBenuttingPlots();
                 generateRoosterGraadFigure();
-                // Generate the plots
+
                 document.querySelector(".rapport-container").style.display = "block";
 
                 let traces = data2traces(data);
@@ -294,8 +295,8 @@
                 }
                 else {
                     hoursPerDay = 8
-                    start = "9:00"
-                    end = "17:00"
+                    start = limitedTimeRangeStart+":00"
+                    end = limitedTimeRangeEnd+":00"
                 }
 
                 const measurementsPerHour = 4; // Assuming 4 measurements per hour
@@ -329,7 +330,7 @@
                     // Filtering based on selected time range
                     const hour = entry.DateTime.getHours();
                     if ((timeRange === 'full' && (hour >= 7 && hour < 22)) ||
-                        (timeRange === 'limited' && (hour >= 9 && hour < 17))) {
+                        (timeRange === 'limited' && (hour >= limitedTimeRangeStart && hour < limitedTimeRangeEnd))) {
                         if (!allRooms[room]) {
                             allRooms[room] = { measurements: 0, bezet: 0, capacity: entry.RoomCapacity };
                         }
@@ -380,7 +381,7 @@
                         const hour = entry.DateTime.getHours();
 
                         return entry.RoomName === room && (timeRange === 'full' && (hour >= 7 && hour < 22)) ||
-                            (timeRange === 'limited' && (hour >= 9 && hour < 17))
+                            (timeRange === 'limited' && (hour >= limitedTimeRangeStart && hour < limitedTimeRangeEnd))
                     });
 
 
@@ -619,207 +620,13 @@
             }
 
 
-            // function generateFigureBezettingTime() {
-            //     times = [...new Set(data.map(row => row.hour))].sort(x => parseInt(x));
-            //     numBezetTime = times.map(time => 0)
-            //     numNietBezetTime = times.map(time => 0)
-            //     numTotalTime = times.map(time => 0)
-            //     data.forEach(row => {
-            //         time = row.hour
-            //         i = times.indexOf(time)
-            //         if (row.Amount > 0) {
-            //             numBezetTime[i] += 1
-            //         }
-            //         else {
-            //             numNietBezetTime[i] += 1
-            //         }
-            //         numTotalTime[i] += 1
-            //     })
-
-
-            //     numBezetTime = numBezetTime.map((val, i) => 100 * val / numTotalTime[i])
-            //     numNietBezetTime = numNietBezetTime.map((val, i) => 100 * val / numTotalTime[i])
-            //     var trace1 = {
-            //         x: times,
-            //         y: numBezetTime,
-            //         name: 'Bezet',
-            //         type: 'line'
-            //     };
-            //     // var trace2 = {
-            //     //     x: times,
-            //     //     y: numNietBezetTime,
-            //     //     name: 'Niet bezet',
-            //     //     type: 'bar'
-            //     // };
-            //     var data_plot = [trace1];
-            //     var layout = {
-            //         xaxis: {
-            //             // title: 'Tijd'
-            //         },
-            //         yaxis: {
-            //             title: 'Percentage (%)'
-            //         }
-            //     };
-            //     Plotly.newPlot('throughout-day-plot', data_plot, layout,{responsive: true});
-            // }
-
-            // function generateFigureBezettingWeekday() {
-            //     weekdays = all_days_of_week;
-            //     numBezetWeekday = weekdays.map(weekday => 0)
-            //     numNietBezetWeekday = weekdays.map(weekday => 0)
-            //     numTotalWeekday = weekdays.map(weekday => 0)
-            //     data.forEach(row => {
-            //         weekday = row.weekday
-            //         i = weekdays.indexOf(weekday)
-            //         if (row.Amount > 0) {
-            //             numBezetWeekday[i] += 1
-            //         }
-            //         else {
-            //             numNietBezetWeekday[i] += 1
-            //         }
-            //         numTotalWeekday[i] += 1
-            //     })
-            //     numBezetWeekday = numBezetWeekday.map((val, i) => 100 * val / numTotalWeekday[i])
-            //     numNietBezetWeekday = numNietBezetWeekday.map((val, i) => 100 * val / numTotalWeekday[i])
-            //     var trace1 = {
-            //         x: weekdays,
-            //         y: numBezetWeekday,
-            //         name: 'Bezet',
-            //         type: 'line'
-            //     };
-            //     // var trace2 = {
-            //     //     x: weekdays,
-            //     //     y: numNietBezetWeekday,
-            //     //     name: 'Niet bezet',
-            //     //     type: 'bar'
-            //     // };
-            //     var data_plot = [trace1];
-            //     var layout = {
-            //         barmode: 'stack',
-            //         xaxis: {
-            //             // title: 'Tijd'
-            //         },
-            //         yaxis: {
-            //             title: 'Percentage (%)'
-            //         }
-            //     };
-            //     Plotly.newPlot('throughout-weekday-plot', data_plot, layout,{responsive: true});
-
-            // };
-
-
-            // function generateFigureBezettingTimePerRoom() {
-            //     rooms = [...new Set(data.map(row => row.RoomName))].sort();
-            //     times = [...new Set(data.map(row => row.hour))].sort(x => parseInt(x));
-            //     console.log(times)
-            //     numBezetTime = rooms.map(room => times.map(time => 0));
-            //     numNietBezetTime = rooms.map(room => times.map(time => 0));
-            //     numTotalTime = rooms.map(room => times.map(time => 0));
-
-            //     data.forEach(row => {
-            //         room = row.RoomName;
-            //         time = row.hour;
-            //         i = rooms.indexOf(room);
-            //         j = times.indexOf(time);
-            //         if (row.Amount > 0) {
-            //             numBezetTime[i][j] += 1;
-            //         } else {
-            //             numNietBezetTime[i][j] += 1;
-            //         }
-            //         numTotalTime[i][j] += 1;
-            //     });
-
-            //     var traces = [];
-            //     // hide all rooms that have little data <10% of total data
-            //     var hide = rooms.map(room => numTotalTime[rooms.indexOf(room)].reduce((a, b) => a + b, 0) < parseInt(0.1 * data.length / rooms.length));
-
-            //     for (i = 0; i < rooms.length; i++) {
-            //         var normalizedBezetTime = numBezetTime[i].map((bezet, index) =>
-            //             numTotalTime[i][index] > 0 ? (bezet / numTotalTime[i][index]) * 100 : 0
-            //         );
-
-            //         var trace = {
-            //             x: times,
-            //             y: normalizedBezetTime,  // use normalized data
-            //             name: rooms[i],  // room name
-            //             type: 'line'
-            //         };
-            //         if (hide[i]) {
-            //             trace.visible = 'legendonly';
-            //         }
-            //         traces.push(trace);
-            //     }
-            //     // we want to always have y=0 on the plot
-            //     var layout = {
-            //         xaxis: {
-            //             // title: 'Tijd'
-            //         },
-            //         yaxis: {
-            //             title: 'Percentage (%)',
-            //             rangemode: 'tozero'  // Ensures the range includes zero if the data doesn't
-            //         }
-            //     };
-            //     Plotly.newPlot('throughout-day-plot-rooms', traces, layout,{responsive: true});
-            // }
-
-            // function generateFigureBezettingDaysPerRoom() {
-            //     rooms = [...new Set(data.map(row => row.RoomName))].sort();
-            //     days = all_days_of_week;
-            //     numBezetDay = rooms.map(room => days.map(day => 0));
-            //     numNietBezetDay = rooms.map(room => days.map(day => 0));
-            //     numTotalDay = rooms.map(room => days.map(day => 0));
-
-            //     data.forEach(row => {
-            //         room = row.RoomName;
-            //         day = row.weekday;
-            //         i = rooms.indexOf(room);
-            //         j = days.indexOf(day);
-            //         if (row.Amount > 0) {
-            //             numBezetDay[i][j] += 1;
-            //         } else {
-            //             numNietBezetDay[i][j] += 1;
-            //         }
-            //         numTotalDay[i][j] += 1;
-            //     });
-
-            //     var traces = [];
-            //     // we want to hide the rooms that have little data
-            //     var hide = rooms.map(room => numTotalDay[rooms.indexOf(room)].reduce((a, b) => a + b, 0) < parseInt(0.1 * data.length / rooms.length));
-            //     for (i = 0; i < rooms.length; i++) {
-            //         var normalizedBezetDay = numBezetDay[i].map((bezet, index) =>
-            //             numTotalDay[i][index] > 0 ? (bezet / numTotalDay[i][index]) * 100 : 0
-            //         );
-            //         var trace = {
-            //             x: days,
-            //             y: normalizedBezetDay,  // use normalized data
-            //             name: rooms[i],  // room name
-            //             type: 'line'
-            //         };
-            //         if (hide[i]) {
-            //             trace.visible = 'legendonly';
-            //         }
-            //         traces.push(trace);
-            //     }
-            //     var layout = {
-            //         xaxis: {
-            //             // title: 'Dag'
-            //         },
-            //         yaxis: {
-            //             title: 'Percentage (%)',
-            //             rangemode: 'tozero'  // Ensures the range includes zero if the data doesn't
-            //         }
-            //     };
-            //     Plotly.newPlot('throughout-weekday-plot-rooms', traces, layout,{responsive: true});
-
-            // }
-
             function generateAllLineBezettingPlots() {
                 const timeRange = document.querySelector('input[name="timeRange"]:checked').value;
 
                 rooms = [...new Set(data.map(row => row.RoomName))].sort();
                 times = [...new Set(data.map(row => row.hour))].sort(x => parseInt(x));
                 times = times.filter(time => (timeRange === 'full' && (time >= 7 && time < 22)) ||
-                    (timeRange === 'limited' && (time >= 9 && time < 17)));
+                    (timeRange === 'limited' && (time >= limitedTimeRangeStart && time < limitedTimeRangeEnd)));
                 weekdays = all_days_of_week;
 
                 numBezetTime = rooms.map(room => times.map(time => 0));
@@ -835,14 +642,11 @@
                 sumBezetAllRoomsWeekday = weekdays.map(weekday => 0);
                 sumTotalAllRoomsWeekday = weekdays.map(weekday => 0);
 
-                // const timeRange = document.querySelector('input[name="timeRange"]:checked').value;
-
-                    // Filtering based on selected time range
-
+  
                 data.forEach(row => {
                     const hour = row.DateTime.getHours();
                     if ((timeRange === 'full' && (hour >= 7 && hour < 22)) ||
-                        (timeRange === 'limited' && (hour >= 9 && hour < 17))) {
+                        (timeRange === 'limited' && (hour >= limitedTimeRangeStart && hour < limitedTimeRangeEnd))) {
                         room = row.RoomName;
                         time = row.hour;
                         weekday = row.weekday;
@@ -882,7 +686,7 @@
                         color: 'rgba(219, 64, 82, 100)',
                         width: 7,
                     },
-                    opacity: 0.4 // Set opacity to 1 (opaque)
+                    opacity: 0.4 
 
                 };
                 traceSumWeekday = {
@@ -898,7 +702,7 @@
                         color: 'rgba(219, 64, 82, 100)',
                         width: 7,
                     },
-                    opacity: 0.4 // Set opacity to 1 (opaque)
+                    opacity: 0.4 
 
                 };
 
@@ -916,17 +720,17 @@
                     traceTime = {
                         x: times,
                         y: normalizedBezetTime,
-                        name: rooms[i],  // room name
+                        name: rooms[i],  
                         type: 'scatter',
-                        mode: 'lines+markers',  // For dots and lines like the image
+                        mode: 'lines+markers',  
                         marker: {
-                            size: 6  // Adjust marker size
+                            size: 6  
                         }
                     };
                     traceWeekday = {
                         x: weekdays,
-                        y: normalizedBezetWeekday,  // use normalized data
-                        name: rooms[i],  // room name
+                        y: normalizedBezetWeekday,  
+                        name: rooms[i],  
                         type: 'scatter',
                         mode: 'lines+markers',
                         marker: {
@@ -941,16 +745,13 @@
                     tracesWeekday.push(traceWeekday);
                 }
 
-                // Layout for time plot (throughout the day)
-                // we limit the x-axis to the timerange
-
+                
                 layoutTime = {
                     title: 'Gemiddelde bezetting gedurende de dag per zaal',
                     xaxis: {
-                        // title: 'Tijd',
                         tickvals: times,
                         ticktext: times.map(time => `${time}:00`),  // format like 08:00, 09:00 etc.
-                        showgrid: true  // Show gridlines
+                        showgrid: true  
                     },
                     yaxis: {
                         title: 'Bezetting (%)',
@@ -964,16 +765,14 @@
                     margin: {
                         // l : 0,
                         r : 0,
-                        t: 60,  // Top margin for title
-                        b: 0  // Bottom margin for legend
+                        t: 60,  
+                        b: 0  
                     }
                 };
 
-                // Layout for weekday plot (unused for now but similar style)
                 layoutWeekday = {
                     title: 'Gemiddelde bezetting gedurende de week per zaal',
                     xaxis: {
-                        // title: 'Dag',
                         showgrid: true
                     },
                     yaxis: {
@@ -986,7 +785,6 @@
                         y: -0.25
                     },
                     margin: {
-                        // l : 0,
                         r : 0,
                         t: 60,
                         b: 0
@@ -1006,7 +804,7 @@
                 rooms = [...new Set(data.map(row => row.RoomName))].sort();
                 times = [...new Set(data.map(row => row.hour))].sort(x => parseInt(x));
                 times = times.filter(time => (timeRange === 'full' && (time >= 7 && time < 22)) ||
-                    (timeRange === 'limited' && (time >= 9 && time < 17)));
+                    (timeRange === 'limited' && (time >= limitedTimeRangeStart && time < limitedTimeRangeEnd)));
                 weekdays = all_days_of_week;
                 numBezetTime = rooms.map(room => times.map(time => 0));
                 numBezetWeekday = rooms.map(room => weekdays.map(weekday => 0));
@@ -1020,7 +818,7 @@
                 data.forEach(row => {
                     hour = row.DateTime.getHours();
                     if ((timeRange === 'full' && (hour >= 7 && hour < 22)) ||
-                        (timeRange === 'limited' && (hour >= 9 && hour < 17))) {
+                        (timeRange === 'limited' && (hour >= limitedTimeRangeStart && hour < limitedTimeRangeEnd))) {
                     room = row.RoomName;
                     time = row.hour;
                     capacity = parseInt(row.RoomCapacity);
@@ -1056,7 +854,7 @@
                         color: 'rgba(219, 64, 82, 100)',
                         width: 7,
                     },
-                    opacity: 0.4 // Set opacity to 1 (opaque)
+                    opacity: 0.4 
 
                 };
                 traceSumWeekday = {
@@ -1071,7 +869,7 @@
                         color: 'rgba(219, 64, 82, 100)',
                         width: 7,
                     },
-                    opacity: 0.4 // Set opacity to 1 (opaque)
+                    opacity: 0.4 
 
                 };
                 tracesTime = [traceSumTime];
@@ -1086,17 +884,17 @@
                     traceTime = {
                         x: times,
                         y: normalizedBezetTime,
-                        name: rooms[i],  // room name
+                        name: rooms[i],  
                         type: 'scatter',
-                        mode: 'lines+markers',  // For dots and lines like the image
+                        mode: 'lines+markers',  
                         marker: {
-                            size: 6  // Adjust marker size
+                            size: 6 
                         }
                     };
                     traceWeekday = {
                         x: weekdays,
-                        y: normalizedBezetWeekday,  // use normalized data
-                        name: rooms[i],  // room name
+                        y: normalizedBezetWeekday,  
+                        name: rooms[i],  
                         type: 'scatter',
                         mode: 'lines+markers',
                         marker: {
@@ -1110,14 +908,14 @@
                     tracesTime.push(traceTime);
                     tracesWeekday.push(traceWeekday);
                 }
-                // Layout for time plot (throughout the day)
+
                 layoutTime = {
                     title: 'Gemiddelde benutting gedurende de dag per zaal als de zaal bezet is',
                     xaxis: {
                         // title: 'Tijd',
                         tickvals: times,
                         ticktext: times.map(time => `${time}:00`),  // format like 08:00, 09:00 etc.
-                        showgrid: true  // Show gridlines
+                        showgrid: true  
                     },
                     yaxis: {
                         title: 'Benutting (%)',
@@ -1129,7 +927,6 @@
                         y: -0.25  // Position below the plot
                     },
                     margin: {
-                        // l : 0,
                         r : 0,
                         t: 60,
                         b: 0
@@ -1152,7 +949,6 @@
                         y: -0.25
                     },
                     margin: {
-                        // l : 0,
                         r : 0,
                         t: 60,
                         b: 0
@@ -1169,6 +965,7 @@
 
                 // this function calculates the amount of time that there's an eventID for a room
                 // and plots this as a bar graph with a bar for each room
+
                 rooms = [...new Set(data.map(row => row.RoomName))].sort();
                 numRoosterGraad = rooms.map(room => 0);
                 numTotalTime = rooms.map(room => 0);
@@ -1176,10 +973,10 @@
                 data.forEach(row => {
                     hour = row.DateTime.getHours();
                     if ((timeRange === 'full' && (hour >= 7 && hour < 22)) ||
-                        (timeRange === 'limited' && (hour >= 9 && hour < 17))) {
+                        (timeRange === 'limited' && (hour >= limitedTimeRangeStart && hour < limitedTimeRangeEnd))) {
                     room = row.RoomName;
                     i = rooms.indexOf(room);
-                    // console.log(row.EventId, Boolean(row.EventId))
+
                     if (row.EventId) {
                         numRoosterGraad[i] += 1;
                     }
@@ -1194,17 +991,12 @@
                     trace = {
                         x: [rooms[i]],
                         y: [normalizedRoosterGraad[i]],
-                        name: rooms[i],  // room name
+                        name: rooms[i],  
                         type: 'bar',
-                        marker: {
-                            // color: 'rgb(158,202,225)',
-                            // opacity: 0.6
-                        }
                     };
                     traces.push(trace);
                 }
-                // we want to have the x-labels rotated for readability to 90 degrees
-                // we add a line for the average 
+
                 averageRoosterGraad = numRoosterGraad.reduce((a, b) => a + b, 0) / numTotalTime.reduce((a, b) => a + b, 0) * 100;
                 traces.push({
                     x: rooms,
@@ -1230,7 +1022,8 @@
                 };
                 Plotly.newPlot('rooster-graad-plot', traces, layout,{responsive: true});
             }
-            // Function to generate the histogram from the observations
+
+
             function calculateHistogram(observations, capacity) {
                 const histogram = Array(10).fill(0); // 10 deciles (0-10%, 10-20%, ..., 90-100%)
 
