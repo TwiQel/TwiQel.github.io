@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TwiQel - Management rapportage bezetting en benutting onderwijsruimtes</title>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+
     <link rel="stylesheet" href="styles.css">
     <style>
 
@@ -17,17 +19,13 @@
         <button class="tablink active" onclick="openTab('description')">Beschrijving</button>
         <button class="tablink" onclick="openTab('bezetting')">Bezetting</button>
         <button class="tablink" onclick="openTab('benutting')">Benutting</button>
-        <button class="tablink" onclick="openTab('filter')">Filter Tool</button>
         <button class="tablink" onclick="openTab('roostergraad')">Roostergraad</button>
+        <button class="tablink" onclick="openTab('filter')">Filter Tool</button>
     </div>
+
     <div class="container">
-        <!-- <div class="topbar"> -->
-            <!-- <a href="/"><img src="logo.svg" alt="Logo" class="logo"></a> -->
-            <!-- <h1>Management rapportage bezetting en benutting onderwijsruimtes</h1> -->
-        <!-- </div> -->
-        <!-- <br><br> -->
+
         <input type="file" id="csvFileInput" accept=".csv">
-        <!-- we add a button to run the csv -->
         <button id="runButton">Run</button>
 
 
@@ -43,11 +41,6 @@
                 </label>
             </div>
 
-            <!-- Tabs Navigation -->
-
-
-
-            <!-- Tab Content -->
             <div id="description" class="tab active">
 
 
@@ -97,16 +90,12 @@
                     <div id="throughout-day-plot-rooms-benutting" class="plot"></div>
                     <div id="throughout-weekday-plot-rooms-benutting" class="plot"></div>
                 </div>
-                <!-- <div id="throughout-day-plot-rooms-benutting"></div>
-                <br><br>
-                <div id="throughout-weekday-plot-rooms-benutting"></div> -->
             </div>
             <div id="roostergraad" class="tab">
                 <h2>Roostergraad onderwijsruimtes</h2>
                     <div style="width: 70%;">
                         <div id="rooster-graad-plot" class="plot"></div>
                     </div>
-                    <!-- <div id="throughout-weekday-plot-rooms-roostergraad" class="plot"></div> -->
             </div>
             <div id="filter" class="tab">
                 <h2>Filter tool!</h2>
@@ -199,48 +188,32 @@
 
             let measurementDays;
             const roomNamesSet = new Set(); // To collect unique room names
+
+
+            function readFile(file){
+                if (file) {
+                    Papa.parse(file, {
+                        complete: function(results) {
+                            data = results.data;
+                            processCSV();
+                        },
+                        header: true,  // Treats the first row as headers
+                        skipEmptyLines: true,  // Skips any empty lines
+                        error: function(error) {
+                            console.error('Error:', error.message);
+                        }
+                    });
+                }
+            };
+
             document.getElementById('runButton').addEventListener('click', function () {
                 const fileInput = document.getElementById('csvFileInput');
-                const file = fileInput.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function (e) {
-                        const contents = e.target.result;
-                        data = parseCSV(contents);
-                        processCSV();
-                    };
-                    reader.readAsText(file);
-                }
-            });
-            document.getElementById('csvFileInput').addEventListener('change', function (event) {
-                const file = event.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function (e) {
-                        const contents = e.target.result;
-                        data = parseCSV(contents);
-                        processCSV();
-                    };
-                    reader.readAsText(file);
-                }
+                readFile(fileInput.files[0]);                
             });
 
-            function parseCSV(contents) {
-                const lines = contents.split('\n').map(line => line.trim()).filter(line => line);
-                const headers = lines[0].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-                const rows = lines.slice(1).map(line => {
-                    const row = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-                    return row.map(cell => cell.replace(/^"|"$/g, '').replace(/""/g, '"'));
-                });
-
-                return rows.map(row => {
-                    let obj = {};
-                    headers.forEach((header, index) => {
-                        obj[header] = row[index];
-                    });
-                    return obj;
-                });
-            }
+            document.getElementById('csvFileInput').addEventListener('change', function(event) {
+                readFile(event.target.files[0]);
+            });
 
 
             function parseDate(dateStr) {
@@ -279,7 +252,7 @@
                 document.querySelector(".rapport-container").style.display = "block";
 
                 let traces = data2traces(data);
-                plot(traces);
+                filterPlot(traces);
             }
 
             function writeSummary() {
@@ -588,7 +561,7 @@
 
             }
 
-            function plot(allTraces) {
+            function filterPlot(allTraces) {
 
 
                 types.forEach((type, i) => {
@@ -706,8 +679,8 @@
 
                 };
 
-                tracesTime = [traceSumTime];
-                tracesWeekday = [traceSumWeekday];
+                tracesTime = [];
+                tracesWeekday = [];
                 
                 for (i = 0; i < rooms.length; i++) {
                     normalizedBezetTime = numBezetTime[i].map((bezet, index) =>
@@ -744,8 +717,9 @@
                     tracesTime.push(traceTime);
                     tracesWeekday.push(traceWeekday);
                 }
+                tracesTime.push(traceSumTime);
+                tracesWeekday.push(traceSumWeekday);  
 
-                
                 layoutTime = {
                     title: 'Gemiddelde bezetting gedurende de dag per zaal',
                     xaxis: {
@@ -806,12 +780,12 @@
                 times = times.filter(time => (timeRange === 'full' && (time >= 7 && time < 22)) ||
                     (timeRange === 'limited' && (time >= limitedTimeRangeStart && time < limitedTimeRangeEnd)));
                 weekdays = all_days_of_week;
-                numBezetTime = rooms.map(room => times.map(time => 0));
+                numBezetTime    = rooms.map(room => times.map(time => 0));
+                numTotalTime    = rooms.map(room => times.map(time => 0));
                 numBezetWeekday = rooms.map(room => weekdays.map(weekday => 0));
-                numTotalTime = rooms.map(room => times.map(time => 0));
                 numTotalWeekday = rooms.map(room => weekdays.map(weekday => 0));
-                sumBezetAllRoomsTime = times.map(time => 0);
-                sumTotalAllRoomsTime = times.map(time => 0);
+                sumBezetAllRoomsTime    = times.map(time => 0);
+                sumTotalAllRoomsTime    = times.map(time => 0);
                 sumBezetAllRoomsWeekday = weekdays.map(weekday => 0);
                 sumTotalAllRoomsWeekday = weekdays.map(weekday => 0);
 
@@ -840,7 +814,7 @@
                     numTotalWeekday[i][k] += parseInt(row.Amount) / capacity;
                 }
                 });
-                console.log(numBezetWeekday, numBezetTime, numTotalTime, numTotalWeekday)
+
                 hide = rooms.map(room => numBezetTime[rooms.indexOf(room)].reduce((a, b) => a + b, 0) < parseInt(0.1 * data.length / rooms.length));
                 traceSumTime = {
                     x: times,
@@ -872,8 +846,8 @@
                     opacity: 0.4 
 
                 };
-                tracesTime = [traceSumTime];
-                tracesWeekday = [traceSumWeekday];
+                tracesTime = [];
+                tracesWeekday = [];
                 for (i = 0; i < rooms.length; i++) {
                     normalizedBezetTime = numBezetTime[i].map((bezet, index) =>
                         (numTotalTime[i][index] / bezet) * 100
@@ -908,7 +882,8 @@
                     tracesTime.push(traceTime);
                     tracesWeekday.push(traceWeekday);
                 }
-
+                tracesTime.push(traceSumTime);
+                tracesWeekday.push(traceSumWeekday);
                 layoutTime = {
                     title: 'Gemiddelde benutting gedurende de dag per zaal als de zaal bezet is',
                     xaxis: {
